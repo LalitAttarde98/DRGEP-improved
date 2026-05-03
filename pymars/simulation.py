@@ -165,8 +165,8 @@ class Simulation(object):
                         ignition_flag = True
 
                         if stop_at_ignition:
-                            break
-
+                            break          
+                    #print(f"Time: {self.sim.time:.6f} s, Temperature: {self.reac.T:.2f} K")              
                     # Add ``timestep`` to table
                     timestep.append()
                 

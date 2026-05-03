@@ -1,0 +1,92 @@
+model: docs/C3MechV4.0.1_44IA_C0-C3-C4_N_LT-HT_Cantera.yaml
+# List of target species
+targets: 
+  - CH3OCH3
+  - O2
+# List of species to be always retained
+retained-species:
+  - N2
+# options: DRG, DRGEP, PFA
+method: DRGEP
+# Interaction method for DRGEP: dijkstra, multipath, random_walk
+interaction-method: multipath
+# Error limit, in percentage
+error: 40.0
+
+## Sensitivity analysis inputs
+# True to enable sensitivity analysis
+sensitivity-analysis: False
+# sensitivity-type options: initial, greedy
+sensitivity-type: initial
+upper-threshold: 0.2
+
+# List of initial conditions for autoignition sampling
+autoignition-conditions:
+  - kind: constant volume
+    # units: atm
+    pressure: 10.0
+    # units: K
+    temperature: 700.0
+    # species given in mole fractions
+    fuel: 
+      CH3OCH3: 1.0
+    oxidizer:
+      O2: 1.0
+      N2: 3.76
+    equivalence-ratio: 1.0
+    end-time: 1.0
+
+  - kind: constant volume 
+    pressure: 10.0
+    temperature: 800.0
+    fuel: 
+      CH3OCH3: 1.0
+    oxidizer:
+      O2: 1.0
+      N2: 3.76
+    equivalence-ratio: 1.0
+    end-time: 1.0
+
+  - kind: constant volume 
+    pressure: 10.0
+    temperature: 900.0
+    fuel: 
+      CH3OCH3: 1.0
+    oxidizer:
+      O2: 1.0
+      N2: 3.76
+    equivalence-ratio: 1.0
+    end-time: 0.1
+
+  - kind: constant volume 
+    pressure: 10.0
+    temperature: 1000.0
+    fuel: 
+      CH3OCH3: 1.0
+    oxidizer:
+      O2: 1.0
+      N2: 3.76
+    equivalence-ratio: 1.0
+    end-time: 0.1
+
+  - kind: constant volume 
+    pressure: 10.0
+    temperature: 1200.0
+    fuel: 
+      CH3OCH3: 1.0
+    oxidizer:
+      O2: 1.0
+      N2: 3.76
+    equivalence-ratio: 1.0
+    end-time: 0.1
+
+  - kind: constant volume 
+    pressure: 10.0
+    temperature: 1400.0
+    fuel: 
+      CH3OCH3: 1.0
+    oxidizer:
+      O2: 1.0
+      N2: 3.76
+    equivalence-ratio: 1.0
+    end-time: 0.1

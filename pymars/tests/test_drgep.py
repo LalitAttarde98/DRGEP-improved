@@ -11,7 +11,7 @@ import networkx as nx
 
 from ..sampling import data_files, InputIgnition
 from ..drgep import create_drgep_matrix, graph_search_drgep, get_importance_coeffs
-from ..drgep import reduce_drgep, run_drgep
+from ..drgep import reduce_drgep, run_drgep, InteractionMethod
 
 # Taken from http://stackoverflow.com/a/22726782/1569494
 try:
@@ -72,7 +72,7 @@ class TestTrimDRGEP:
     def testGRItrim51(self):
 
         # Original model
-        solution_object = ct.Solution("gri30.cti")
+        solution_object = ct.Solution("gri30.yaml")
 
         # Dictionary, retained species, and threshold value to input
         max_dict = {"CH4": 1.0, "N2": .25, "O2": .75}
@@ -677,8 +677,7 @@ class TestGetImportanceCoeffs:
 
 class TestRunDRGEP:
     def test_gri_reduction(self):
-        """Tests driver run_drgep method"""
-        model_file = 'gri30.cti'
+        model_file = 'gri30.yaml'
 
         # Conditions for reduction
         conditions = [
@@ -707,9 +706,77 @@ class TestRunDRGEP:
                 )
 
         # Expected answer
-        expected_model = ct.Solution(relative_location(os.path.join('assets', 'drgep_gri30.cti')))
+        expected_model = ct.Solution(relative_location(os.path.join('assets', 'drgep_gri30.yaml')))
         
         # Make sure models are the same
         assert check_equal(reduced_model.model.species_names, expected_model.species_names)
         assert reduced_model.model.n_reactions == expected_model.n_reactions
         assert round(reduced_model.error, 2) == 3.22
+
+    def test_gri_reduction_random_walk(self):
+        model_file = 'gri30.yaml'
+
+        # Conditions for reduction
+        conditions = [
+            InputIgnition(
+                kind='constant volume', pressure=1.0, temperature=1000.0, equivalence_ratio=1.0,
+                fuel={'CH4': 1.0}, oxidizer={'O2': 1.0, 'N2': 3.76}
+                ),
+            InputIgnition(
+                kind='constant volume', pressure=1.0, temperature=1200.0, equivalence_ratio=1.0,
+                fuel={'CH4': 1.0}, oxidizer={'O2': 1.0, 'N2': 3.76}
+                ),
+        ]
+        data_files['output_ignition'] = relative_location(
+            os.path.join('assets', 'example_ignition_output.txt')
+            )
+        data_files['data_ignition'] = relative_location(
+            os.path.join('assets', 'example_ignition_data.dat')
+            )
+        error = 5.0
+
+        # Run DRGEP with random_walk
+        with TemporaryDirectory() as temp_dir:
+            reduced_model = run_drgep(
+                model_file, conditions, [], [], error, ['CH4', 'O2'], ['N2'], 
+                num_threads=1, path=temp_dir, method=InteractionMethod.RANDOM_WALK
+                )
+
+        # Note: Since the random_walk method results in a slightly different 
+        # reduction than standard DRGEP, we just ensure it successfully produces a model.
+        assert reduced_model.model.n_species < 53  # Less than GRI30 original 53 species
+        assert reduced_model.error <= error
+
+    def test_gri_reduction_multipath(self):
+        """Tests driver run_drgep method with multipath"""
+        model_file = 'gri30.yaml'
+
+        # Conditions for reduction
+        conditions = [
+            InputIgnition(
+                kind='constant volume', pressure=1.0, temperature=1000.0, equivalence_ratio=1.0,
+                fuel={'CH4': 1.0}, oxidizer={'O2': 1.0, 'N2': 3.76}
+                ),
+            InputIgnition(
+                kind='constant volume', pressure=1.0, temperature=1200.0, equivalence_ratio=1.0,
+                fuel={'CH4': 1.0}, oxidizer={'O2': 1.0, 'N2': 3.76}
+                ),
+        ]
+        data_files['output_ignition'] = relative_location(
+            os.path.join('assets', 'example_ignition_output.txt')
+            )
+        data_files['data_ignition'] = relative_location(
+            os.path.join('assets', 'example_ignition_data.dat')
+            )
+        error = 5.0
+
+        # Run DRGEP with multipath
+        with TemporaryDirectory() as temp_dir:
+            reduced_model = run_drgep(
+                model_file, conditions, [], [], error, ['CH4', 'O2'], ['N2'], 
+                num_threads=1, path=temp_dir, method=InteractionMethod.MULTIPATH
+                )
+
+        # Note: Similar to random walk, ensure it successfully produces a skeletal model
+        assert reduced_model.model.n_species < 53  # Less than GRI30 original 53 species
+        assert reduced_model.error <= error
