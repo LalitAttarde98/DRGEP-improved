@@ -1,59 +1,48 @@
-# pyMARS
-<img src="logo/pymars-logo.png" align="right" width="200" />
+# Beyond Shortest Paths: Multipath & Random-Walk Extensions of DRGEP
 
-[![DOI](https://zenodo.org/badge/51664233.svg)](https://zenodo.org/badge/latestdoi/51664233)
-[![JOSS DOI](https://joss.theoj.org/papers/10.21105/joss.01543/status.svg)](https://doi.org/10.21105/joss.01543)
-![Build Status](https://github.com/Niemeyer-Research-Group/pyMARS/actions/workflows/pythonpackage.yml/badge.svg)
-[![codecov](https://codecov.io/gh/Niemeyer-Research-Group/pyMARS/branch/master/graph/badge.svg)](https://codecov.io/gh/Niemeyer-Research-Group/pyMARS)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Code of Conduct](https://img.shields.io/badge/code%20of%20conduct-contributor%20covenant-green.svg)](http://contributor-covenant.org/version/1/4/)
-[![Anaconda-Server Badge](https://anaconda.org/niemeyer-research-group/pymars/badges/version.svg)](https://anaconda.org/niemeyer-research-group/pymars)
+This repository implements advanced graph-search algorithms to improve SOTA technique **Directed Relation Graph with Error Propagation (DRGEP)**. By moving beyond the traditional Dijkstra-based "strongest single path" logic, these methods capture more complex chemical dependencies, leading to more compact reduced mechanisms without sacrificing predictive accuracy.
 
-Python-based (chemical kinetic) Model Automatic Reduction Software (pyMARS) implements multiple techniques for reducing the size and complexity of detailed chemical kinetic models.
+## Results
+**Base Mechanism:** C3MechV4.0.1 (867 species)
 
-An installation guide, usage examples, theory details, and API docs are provided in the online documentation: https://Niemeyer-Research-Group.github.io/pyMARS/
+![n-Butane](doc/ignition_delay_comp_c4h10.png) 
 
-pyMARS currently consists of four methods for model reduction:
+![DME](doc/ignition_delay_comp_coc.png)
 
- 1. Directed relation graph (DRG)
- 2. Directed relation graph with error propagation (DRGEP)
- 3. Path flux analysis (PFA)
- 4. Sensitivity analysis (SA)
+## 1. Reduction Efficiency
+**Target Error Threshold:** 5%
 
-Sensitivity analysis may be run following one of the first three methods, or directly on the starting
-model; however, its computational expense is high, and applying this method alone is not recommended.
+| Interaction Method | n-Butane | Reduction (%) | Dimethyl Ether (DME) | Reduction (%) |
+| :--- | :---: | :---: | :---: | :---: |
+| **Dijkstra** | 240 species | 72.3% | 110 species | 88.5% |
+| **Multipath** | **158 species** | **81.7%** | **46 species** | **94.7%** |
+| **Random Walk** | 178 species | 79.5% | 55 species | 93.6% |
 
-## Installation
+| Interaction Method | Runtime (seconds) | Speedup (vs. Dijkstra) |
+| :--- | :---: | :---: |
+| **Dijkstra** | 163.87 | 1.0× |
+| **Multipath** | **12.66** | **12.9×** |
+| **Random Walk** | 49.37 | 3.3× |
 
-pyMARS supports Python 3.7, 3.8, and 3.9, and can be installed easily using conda:
+> **Note on Convergence:** While the Multipath method offers the fastest raw runtime, it produces a more continuous distribution of interaction coefficients. This requires more iterations during the pruning phase compared to the "greedier" Dijkstra approach, which tends to drop species more abruptly.
 
-    conda install -c cantera cantera
-    conda install -c niemeyer-research-group pymars
+## Chemical Validation
+The reduced mechanisms were validated by simulating ignition delays across a wide temperature range. The **Negative Temperature Coefficient (NTC)** behavior of N-butane and distinct low temperature reactivity of dimethyl ether is well retained.
 
-## Usage
+![n-Butane](doc/ignition_delay_comp_c4h10.png)
 
-For detailed usage examples, see the [online documentation](https://Niemeyer-Research-Group.github.io/pyMARS/).
-Once installed, the list of options can be found with:
+![Dimethyl ether](doc/ignition_delay_comp_coc.png) 
 
-    pymars --help
+## Installation & Usage
+This extension is designed to work with **pyMARS**.
 
-pyMARS requires models in the Cantera format. However, running pyMARS with a CHEMKIN file will convert it 
-into a Cantera file. pyMARS also provides the `--convert` option to convert a given model to/from 
-the CHEMKIN format.
+1.  **Documentation:** [Niemeyer-Research-Group.github.io/pyMARS/](https://Niemeyer-Research-Group.github.io/pyMARS/)
+2.  **Basic Usage:**
+    ```bash
+    python3 -m pymars -i c4_test.yaml --path logs/
+    ```
 
-## Citation
-
-Please refer to the CITATION file for information about citing pyMARS when used in a scholarly work.
-
-If you use this package as part of a scholarly publication, please consider citing the appropriate 
-theory/method papers in addition to the software itself.
-
-## License
-
-pyMARS is released under the MIT license; see LICENSE for details.
-
-## Code of Conduct
-
-To ensure an open and welcoming community, pyMARS adheres to a code of conduct adapted from the [Contributor Covenant](http://contributor-covenant.org) code of conduct.
-
-Please adhere to this code of conduct in any interactions you have in the pyMARS community. It is strictly enforced on all official PyKED repositories, websites, and resources. If you encounter someone violating these terms, please let the project lead (@kyleniemeyer) know via email at <kyle.niemeyer@gmail.com> and we will address it as soon as possible.
+## Reference
+1) P. O. Mestas, P. Clayton, and K. E. Niemeyer (2019). pyMARS: automatically reducing chemical kinetic models in Python. Journal of Open Source Software, 4(41), 1543, https://doi.org/10.21105/joss.01543
+2) Pepiot-Desjardins, Perrine, and Heinz Pitsch. "An efficient error-propagation-based reduction method for large chemical kinetic mechanisms." Combustion and Flame 154.1-2 (2008): 67-81.
+3) Wang, Yiru, et al. "Directed Relation Graph-Based Species Rank (DRGSR): An efficient mechanism reduction algorithm." Combustion and Flame 277 (2025): 114226.
