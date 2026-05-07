@@ -2,6 +2,7 @@
 """
 import os
 import logging
+import time
 from collections import deque
 from heapq import heappush, heappop
 from itertools import count
@@ -173,7 +174,7 @@ def graph_search_multipath(matrix, species_names, target_species, lam=0.5, max_h
     species_names : list of str
     target_species : list of str
     lam : float
-        Length penalty factor λ ∈ (0, 1). Smaller → stronger length penalty.
+        Length penalty factor λ in range (0, 1). Smaller -> stronger length penalty.
     max_hops : int
         Maximum path length to consider.
 
@@ -198,7 +199,7 @@ def graph_search_multipath(matrix, species_names, target_species, lam=0.5, max_h
 
         hop = v.copy()
         for k in range(1, max_hops + 1):
-            # W[A, B] = r_AB, so W.T propagates from B → A
+            # W[A, B] = r_AB, so W.T propagates from B -> A
             hop = lam * W.T @ hop
             cumulative += hop
             if np.max(hop) < 1e-12:
@@ -216,7 +217,7 @@ def graph_search_random_walk(matrix, species_names, target_species, alpha=0.85):
     teleports with probability (1-alpha).  The stationary probability of
     reaching a node reflects its overall importance to the target.
 
-    Solved via the linear system:  π = α W^T π + (1-α) e_target
+    Solved via the linear system:  π = alpha * W^T π + (1-alpha) e_target
 
     Parameters
     ----------
@@ -224,7 +225,7 @@ def graph_search_random_walk(matrix, species_names, target_species, alpha=0.85):
     species_names : list of str
     target_species : list of str
     alpha : float
-        Damping factor ∈ (0,1); equivalent to PageRank damping. Default 0.85.
+        Damping factor in range (0,1); equivalent to PageRank damping
 
     Returns
     -------
@@ -369,6 +370,8 @@ def get_importance_coeffs(species_names, target_species, matrices,
     if method_kwargs is None: method_kwargs = {}
     importance_coefficients = {sp:0.0 for sp in species_names}
     name_mapping = {i: sp for i, sp in enumerate(species_names)}
+    
+    start_time = time.time()
     for matrix in matrices:
         if method == InteractionMethod.DIJKSTRA:
             graph = networkx.DiGraph(matrix)
@@ -383,12 +386,16 @@ def get_importance_coeffs(species_names, target_species, matrices,
                 matrix, species_names, target_species, **method_kwargs
             )
         else:
-            raise ValueError(f"Unknown InteractionMethod: {method}")
+            raise ValueError(f"Unknown InteractionMethod: {method}. Supported methods: {[m.value for m in InteractionMethod]}")
         
         importance_coefficients = {
             sp:max(coefficients.get(sp, 0.0), importance_coefficients[sp]) 
             for sp in importance_coefficients
         }
+        
+    end_time = time.time()
+    runtime = end_time - start_time
+    logging.info(f"Interaction method {method.value} took {runtime:.4f} seconds.")
     
     return importance_coefficients
 
