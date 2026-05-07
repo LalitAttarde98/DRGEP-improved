@@ -5,9 +5,9 @@ This repository implements advanced graph-search algorithms to improve SOTA tech
 ## Results
 **Base Mechanism:** C3MechV4.0.1 (867 species)
 
-![n-Butane](doc/ignition_delay_comp_c4h10.png) 
-
-![DME](doc/ignition_delay_comp_coc.png)
+| n-Butane | DME |
+| :---: | :---: |
+| ![](docs/c4_comparison.png) | ![](docs/coc_comparison.png) |
 
 ## 1. Reduction Efficiency
 **Target Error Threshold:** 5%
@@ -29,9 +29,9 @@ This repository implements advanced graph-search algorithms to improve SOTA tech
 ## Chemical Validation
 The reduced mechanisms were validated by simulating ignition delays across a wide temperature range. The **Negative Temperature Coefficient (NTC)** behavior of N-butane and distinct low temperature reactivity of dimethyl ether is well retained.
 
-![n-Butane](doc/ignition_delay_comp_c4h10.png)
-
-![Dimethyl ether](doc/ignition_delay_comp_coc.png) 
+| n-Butane | DME |
+| :---: | :---: |
+| ![](docs/ignition_delay_comp_c4h10.png) | ![](docs/ignition_delay_comp_coc.png) |
 
 ## Installation & Usage
 This extension is designed to work with **pyMARS**.
