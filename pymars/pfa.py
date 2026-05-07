@@ -29,9 +29,9 @@ def create_pfa_matrix(state, solution):
     temp, pressure, mass_fractions = state
     solution.TPY = temp, pressure, mass_fractions
 
-    net_stoich = solution.product_stoich_coeffs() - solution.reactant_stoich_coeffs()
-    flags = np.where(((solution.product_stoich_coeffs() != 0) |
-                        (solution.reactant_stoich_coeffs() !=0 )
+    net_stoich = solution.product_stoich_coeffs - solution.reactant_stoich_coeffs
+    flags = np.where(((solution.product_stoich_coeffs != 0) |
+                        (solution.reactant_stoich_coeffs !=0 )
                         ), 1, 0)
 
     # only consider contributions from reactions with nonzero net rates of progress
@@ -205,7 +205,7 @@ def reduce_pfa(model_file, species_targets, species_safe, threshold,
         model_file, species_removed, f'reduced_{model_file}', phase_name=phase_name
         )
     reduced_model_filename = soln2cti.write(
-        reduced_model, f'reduced_{reduced_model.n_species}.cti', path=path
+        reduced_model, f'reduced_{reduced_model.n_species}.yaml', path=path
         )
 
     reduced_model_metrics = sample_metrics(
@@ -343,7 +343,7 @@ def run_pfa(model_file, ignition_conditions, psr_conditions, flame_conditions,
             threshold_upper=threshold_upper, num_threads=num_threads, path=path
             )
     else:
-        soln2cti.write(reduced_model, f'reduced_{reduced_model.model.n_species}.cti', path=path)
+        soln2cti.write(reduced_model, f'reduced_{reduced_model.model.n_species}.yaml', path=path)
     
     logging.info(45 * '-')
     logging.info('PFA reduction complete.')

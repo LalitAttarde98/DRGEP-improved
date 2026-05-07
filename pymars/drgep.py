@@ -2,9 +2,11 @@
 """
 import os
 import logging
+import time
 from collections import deque
 from heapq import heappush, heappop
 from itertools import count
+from enum import Enum
 
 import numpy as np
 import networkx
@@ -13,6 +15,11 @@ import cantera as ct
 from . import soln2cti
 from .sampling import sample, sample_metrics, calculate_error
 from .reduce_model import trim, ReducedModel
+
+class InteractionMethod(Enum):
+    DIJKSTRA      = "dijkstra"       # Original DRGEP max-path product
+    MULTIPATH     = "multipath"      # Damped sum over all paths
+    RANDOM_WALK   = "random_walk"    # Probabilistic absorption coefficient
 
 
 def mod_dijkstra(G, source, get_weight, pred=None, paths=None, 
@@ -152,6 +159,110 @@ def ss_dijkstra_path_length_modified(G, source, cutoff=None, weight='weight'):
     return mod_dijkstra(G, source, get_weight, cutoff=cutoff)
 
 
+def graph_search_multipath(matrix, species_names, target_species, lam=0.5, max_hops=10):
+    """Multi-path interaction coefficients.
+
+    Sums contributions from ALL directed paths from each target, damped by
+    λ^(path_length).  Rewards species reachable via many parallel pathways.
+    Implemented via iterative matrix-vector products to avoid explicit
+    path enumeration.
+
+    Parameters
+    ----------
+    matrix : numpy.ndarray  (n_species, n_species)
+        Direct interaction coefficient matrix W where W[A,B] = r_AB.
+    species_names : list of str
+    target_species : list of str
+    lam : float
+        Length penalty factor λ in range (0, 1). Smaller -> stronger length penalty.
+    max_hops : int
+        Maximum path length to consider.
+
+    Returns
+    -------
+    overall_coefficients : dict  {species_name: float}
+    """
+    n = len(species_names)
+    name_to_idx = {sp: i for i, sp in enumerate(species_names)}
+    W = matrix.copy()
+
+    overall = np.zeros(n)
+    for target in target_species:
+        if target not in name_to_idx:
+            continue
+        t_idx = name_to_idx[target]
+
+        # v[j] = accumulated coefficient from target to species j
+        v = np.zeros(n)
+        v[t_idx] = 1.0     
+        cumulative = v.copy()
+
+        hop = v.copy()
+        for k in range(1, max_hops + 1):
+            # W[A, B] = r_AB, so W.T propagates from B -> A
+            hop = lam * W.T @ hop
+            cumulative += hop
+            if np.max(hop) < 1e-12:
+                break         
+
+        cumulative[t_idx] = 1.0
+        overall = np.maximum(overall, cumulative)
+
+    return {sp: float(overall[i]) for i, sp in enumerate(species_names)}
+
+def graph_search_random_walk(matrix, species_names, target_species, alpha=0.85):
+    """
+    Models a random walker starting from each target species.  At each step
+    the walker moves along edges with probability proportional to r_AB, or
+    teleports with probability (1-alpha).  The stationary probability of
+    reaching a node reflects its overall importance to the target.
+
+    Solved via the linear system:  π = alpha * W^T π + (1-alpha) e_target
+
+    Parameters
+    ----------
+    matrix : numpy.ndarray  (n, n)
+    species_names : list of str
+    target_species : list of str
+    alpha : float
+        Damping factor in range (0,1); equivalent to PageRank damping
+
+    Returns
+    -------
+    overall_coefficients : dict  {species_name: float}
+    """
+    n = len(species_names)
+    name_to_idx = {sp: i for i, sp in enumerate(species_names)}
+
+    # Row-normalize W to make it a proper transition matrix
+    row_sums = matrix.sum(axis=1, keepdims=True)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        T = np.where(row_sums > 0, matrix / row_sums, 0.0)
+
+    A = np.eye(n) - alpha * T.T        
+    overall = np.zeros(n)
+
+    for target in target_species:
+        if target not in name_to_idx:
+            continue
+        t_idx = name_to_idx[target]
+        b = np.zeros(n)
+        b[t_idx] = 1.0 - alpha         
+
+        try:
+            pi = np.linalg.solve(A, b)
+        except np.linalg.LinAlgError:
+            pi = np.linalg.lstsq(A, b, rcond=None)[0]
+
+        # Normalise so that target itself = 1.0
+        if pi[t_idx] > 0:
+            pi /= pi[t_idx]
+        pi = np.clip(pi, 0.0, 1.0)
+        overall = np.maximum(overall, pi)
+
+    return {sp: float(overall[i]) for i, sp in enumerate(species_names)}
+
+
 def create_drgep_matrix(state, solution):
     """Creates DRGEP graph adjacency matrix
 
@@ -171,9 +282,9 @@ def create_drgep_matrix(state, solution):
     temp, pressure, mass_fractions = state
     solution.TPY = temp, pressure, mass_fractions
 
-    net_stoich = solution.product_stoich_coeffs() - solution.reactant_stoich_coeffs()
-    flags = np.where(((solution.product_stoich_coeffs() != 0) |
-                        (solution.reactant_stoich_coeffs() !=0 )
+    net_stoich = solution.product_stoich_coeffs - solution.reactant_stoich_coeffs
+    flags = np.where(((solution.product_stoich_coeffs != 0) |
+                        (solution.reactant_stoich_coeffs !=0 )
                         ), 1, 0)
 
     # only consider contributions from reactions with nonzero net rates of progress
@@ -237,7 +348,8 @@ def graph_search_drgep(graph, target_species):
     return overall_coefficients
 
 
-def get_importance_coeffs(species_names, target_species, matrices):
+def get_importance_coeffs(species_names, target_species, matrices,
+            method=InteractionMethod.DIJKSTRA, method_kwargs=None):
     """Calculate importance coefficients for all species
 
     Parameters
@@ -255,17 +367,35 @@ def get_importance_coeffs(species_names, target_species, matrices):
         Maximum coefficients over all sampled states
 
     """
+    if method_kwargs is None: method_kwargs = {}
     importance_coefficients = {sp:0.0 for sp in species_names}
     name_mapping = {i: sp for i, sp in enumerate(species_names)}
+    
+    start_time = time.time()
     for matrix in matrices:
-        graph = networkx.DiGraph(matrix)
-        networkx.relabel_nodes(graph, name_mapping, copy=False)
-        coefficients = graph_search_drgep(graph, target_species)
+        if method == InteractionMethod.DIJKSTRA:
+            graph = networkx.DiGraph(matrix)
+            networkx.relabel_nodes(graph, name_mapping, copy=False)
+            coefficients = graph_search_drgep(graph, target_species)
+        elif method == InteractionMethod.MULTIPATH:
+            coefficients = graph_search_multipath(
+                matrix, species_names, target_species, **method_kwargs
+            )
+        elif method == InteractionMethod.RANDOM_WALK:
+            coefficients = graph_search_random_walk(
+                matrix, species_names, target_species, **method_kwargs
+            )
+        else:
+            raise ValueError(f"Unknown InteractionMethod: {method}. Supported methods: {[m.value for m in InteractionMethod]}")
         
         importance_coefficients = {
             sp:max(coefficients.get(sp, 0.0), importance_coefficients[sp]) 
             for sp in importance_coefficients
         }
+        
+    end_time = time.time()
+    runtime = end_time - start_time
+    logging.info(f"Interaction method {method.value} took {runtime:.4f} seconds.")
     
     return importance_coefficients
 
@@ -323,7 +453,7 @@ def reduce_drgep(model_file, species_safe, threshold, importance_coeffs, ignitio
         model_file, species_removed, f'reduced_{model_file}', phase_name=phase_name
         )
     reduced_model_filename = soln2cti.write(
-        reduced_model, f'reduced_{reduced_model.n_species}.cti', path=path
+        reduced_model, f'reduced_{reduced_model.n_species}.yaml', path=path
         )
 
     reduced_model_metrics = sample_metrics(
@@ -339,7 +469,9 @@ def reduce_drgep(model_file, species_safe, threshold, importance_coeffs, ignitio
 
 def run_drgep(model_file, ignition_conditions, psr_conditions, flame_conditions, 
               error_limit, species_targets, species_safe, phase_name='',
-              threshold_upper=None, num_threads=1, path=''
+              threshold_upper=None, num_threads=1, path='',
+              method=InteractionMethod.DIJKSTRA,
+              method_kwargs=None
               ):
     """Main function for running DRGEP reduction.
     
@@ -394,7 +526,8 @@ def run_drgep(model_file, ignition_conditions, psr_conditions, flame_conditions,
     # For DRGEP, find the overall interaction coefficients for all species 
     # using the maximum over all the sampled states
     importance_coeffs = get_importance_coeffs(
-        solution.species_names, species_targets, matrices
+        solution.species_names, species_targets, matrices,
+        method=method, method_kwargs=method_kwargs
         )
 
     # begin reduction iterations
@@ -451,7 +584,7 @@ def run_drgep(model_file, ignition_conditions, psr_conditions, flame_conditions,
             sampled_metrics, phase_name=phase_name, num_threads=num_threads, path=path
             )
     else:
-        soln2cti.write(reduced_model, f'reduced_{reduced_model.model.n_species}.cti', path=path)
+        soln2cti.write(reduced_model, f'reduced_{reduced_model.model.n_species}.yaml', path=path)
 
     if threshold_upper:
         for sp in reduced_model.model.species_names:

@@ -65,11 +65,11 @@ def evaluate_species_errors(starting_model, ignition_conditions, metrics, specie
     with TemporaryDirectory() as temp_dir:
         for idx, species in enumerate(species_limbo):
             test_model = trim(
-                starting_model.filename, [species], f'reduced_model_{species}.cti', 
+                starting_model.filename, [species], f'reduced_model_{species}.yaml', 
                 phase_name=phase_name
                 )
             test_model_file = soln2cti.write(
-                test_model, f'reduced_model_{species}.cti', path=temp_dir
+                test_model, f'reduced_model_{species}.yaml', path=temp_dir
                 )
             reduced_model_metrics = sample_metrics(
                 test_model_file, ignition_conditions, phase_name=phase_name, 
@@ -160,11 +160,11 @@ def run_sa(model_file, starting_error, ignition_conditions, psr_conditions, flam
             species_remove = species_limbo.pop(idx)
 
             test_model = trim(
-                current_model.filename, [species_remove], f'reduced_model_{species_remove}.cti', 
+                current_model.filename, [species_remove], f'reduced_model_{species_remove}.yaml', 
                 phase_name=phase_name
                 )
             test_model_file = soln2cti.write(
-                test_model, output_filename=f'reduced_model_{species_remove}.cti', path=temp_dir
+                test_model, output_filename=f'reduced_model_{species_remove}.yaml', path=temp_dir
                 )
 
             reduced_model_metrics = sample_metrics(
@@ -192,7 +192,7 @@ def run_sa(model_file, starting_error, ignition_conditions, psr_conditions, flam
     
     # Final model; may need to rewrite
     reduced_model = ReducedModel(
-        model=current_model.model, filename=f'reduced_{current_model.model.n_species}.cti', 
+        model=current_model.model, filename=f'reduced_{current_model.model.n_species}.yaml', 
         error=current_model.error
         )
     soln2cti.write(reduced_model.model, reduced_model.filename, path=path)

@@ -5,14 +5,14 @@ import logging
 from argparse import ArgumentParser
 from typing import List, Dict, NamedTuple
 
-import ruamel_yaml as yaml
+import ruamel.yaml as yaml
 import cantera as ct
 
 # local imports
 from .sampling import sample_metrics, parse_ignition_inputs, parse_psr_inputs, parse_flame_inputs
 from .sampling import InputIgnition, InputPSR, InputLaminarFlame
 from . import soln2cti
-from .drgep import run_drgep
+from .drgep import run_drgep, InteractionMethod
 from .drg import run_drg
 from .pfa import run_pfa
 from .sensitivity_analysis import run_sa
@@ -36,6 +36,7 @@ class ReductionInputs(NamedTuple):
     upper_threshold: float = 0.4
     sensitivity_type: str = 'greedy'
     phase_name: str = ''
+    interaction_method: InteractionMethod = InteractionMethod.DIJKSTRA
 
 
 def parse_inputs(input_dict):
@@ -83,6 +84,12 @@ def parse_inputs(input_dict):
 
     phase_name = input_dict.get('phase-name', '')
     
+    interaction_method_str = input_dict.get('interaction-method', 'dijkstra')
+    try:
+        interaction_method = InteractionMethod(interaction_method_str.lower())
+    except ValueError:
+        raise ValueError(f"Invalid interaction-method: {interaction_method_str}. Must be one of: dijkstra, multipath, random_walk")
+    
     # check that the specified model actually contains the specified phase
     try:
         gas = ct.Solution(model, phase_name)
@@ -117,7 +124,8 @@ def parse_inputs(input_dict):
         psr_conditions=psr_inputs, flame_conditions=flame_inputs,
         method=method, target_species=target_species, safe_species=safe_species,
         sensitivity_analysis=sensitivity_analysis, upper_threshold=upper_threshold,
-        sensitivity_type=sensitivity_type, phase_name=phase_name
+        sensitivity_type=sensitivity_type, phase_name=phase_name,
+        interaction_method=interaction_method
         )
 
 
@@ -125,7 +133,7 @@ def main(model_file, error_limit,
          ignition_conditions, psr_conditions=[], flame_conditions=[],
          method=None, target_species=[], safe_species=[], phase_name='',
          run_sensitivity_analysis=False, upper_threshold=None, sensitivity_type='greedy',
-         path='', num_threads=1
+         path='', num_threads=1, interaction_method=InteractionMethod.DIJKSTRA
          ):
     """Driver function for reducing a chemical kinetic model.
 
@@ -186,7 +194,8 @@ def main(model_file, error_limit,
         reduced_model = run_drgep(
             model_file, ignition_conditions, psr_conditions, flame_conditions, 
             error_limit, target_species, safe_species, phase_name=phase_name,
-            threshold_upper=upper_threshold, num_threads=num_threads, path=path
+            threshold_upper=upper_threshold, num_threads=num_threads, path=path,
+            method=interaction_method
             )
     elif method == 'PFA':
         reduced_model = run_pfa(
@@ -303,12 +312,12 @@ def pymars(argv):
             parser.error('A YAML input file needs to be specified using -i or --input')
 
         with open(args.input, 'r') as the_file:
-            input_dict = yaml.safe_load(the_file)
+            input_dict = yaml.YAML(typ='safe', pure=True).load(the_file)
         
         inputs = parse_inputs(input_dict)
 
         # Check for Chemkin format and convert if needed
-        if os.path.splitext(inputs.model)[1] != '.cti':
+        if os.path.splitext(inputs.model)[1] not in ['.cti', '.yaml', '.xml']:
             logging.info('Chemkin file detected; converting before reduction.')
             inputs.model = convert(inputs.model, args.thermo, args.transport, args.path)
 
@@ -319,7 +328,8 @@ def pymars(argv):
             safe_species=inputs.safe_species, phase_name=inputs.phase_name,
             run_sensitivity_analysis=inputs.sensitivity_analysis, 
             upper_threshold=inputs.upper_threshold, sensitivity_type=inputs.sensitivity_type, 
-            path=args.path, num_threads=args.num_threads
+            path=args.path, num_threads=args.num_threads,
+            interaction_method=inputs.interaction_method
             )
     
     logging.shutdown()
