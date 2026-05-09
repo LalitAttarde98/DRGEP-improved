@@ -26,7 +26,7 @@ This repository implements advanced graph-search algorithms to improve SOTA tech
 
 > **Note on Convergence:** While the Multipath method offers the fastest raw runtime, it produces a more continuous distribution of interaction coefficients. This requires more iterations during the pruning phase compared to the "greedier" Dijkstra approach, which tends to drop species more abruptly.
 
-## Chemical Validation
+## Comparison of ignition delays between base and reduced mechanism
 The reduced mechanisms were validated by simulating ignition delays across a wide temperature range. The **Negative Temperature Coefficient (NTC)** behavior of N-butane and distinct low temperature reactivity of dimethyl ether is well retained.
 
 | n-Butane | DME |
