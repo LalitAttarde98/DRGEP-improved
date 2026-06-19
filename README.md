@@ -24,7 +24,7 @@ This repository implements graph-search algorithms to improve SOTA technique **D
 | **Multipath** | **12.66** | **12.9×** |
 | **Random Walk** | 49.37 | 3.3× |
 
-> **Note on Convergence:** While the Multipath method offers the fastest raw runtime, it produces a more continuous distribution of interaction coefficients. This requires more iterations during the pruning phase compared to the "greedier" Dijkstra approach, which tends to drop species more abruptly.
+> **Note on Convergence:** While the Multipath method offers the fastest raw runtime, it produces a more continuous distribution of interaction coefficients. This requires more iterations during the pruning phase compared to the greedier Dijkstra approach, which tends to drop species more abruptly.
 
 ## Comparison of ignition delays between base and reduced mechanism
 The reduced mechanisms were validated by simulating ignition delays across a wide temperature range. The **Negative Temperature Coefficient (NTC)** behavior of N-butane and distinct low temperature reactivity of dimethyl ether is well retained.
@@ -34,7 +34,7 @@ The reduced mechanisms were validated by simulating ignition delays across a wid
 | ![](docs/ignition_delay_comp_c4h10.png) | ![](docs/ignition_delay_comp_coc.png) |
 
 ## Installation & Usage
-This extension is designed to work with **pyMARS**.
+This implementation work with **pyMARS**.
 
 1.  **Documentation:** [Niemeyer-Research-Group.github.io/pyMARS/](https://Niemeyer-Research-Group.github.io/pyMARS/)
 2.  **Basic Usage:**
