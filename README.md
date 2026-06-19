@@ -1,6 +1,6 @@
-# Beyond Shortest Paths: Multipath & Random-Walk Extensions of DRGEP
+# Multipath & Random-Walk Extensions of DRGEP
 
-This repository implements advanced graph-search algorithms to improve SOTA technique **Directed Relation Graph with Error Propagation (DRGEP)**. By moving beyond the traditional Dijkstra-based "strongest single path" logic, these methods capture more complex chemical dependencies, leading to more compact reduced mechanisms without sacrificing predictive accuracy.
+This repository implements graph-search algorithms to improve SOTA technique **Directed Relation Graph with Error Propagation (DRGEP)**. By moving beyond the traditional Dijkstra-based "strongest single path" logic, these methods capture more complex chemical dependencies, leading to more compact reduced mechanisms without sacrificing predictive accuracy.
 
 ## Results
 **Base Mechanism:** C3MechV4.0.1 (867 species)
